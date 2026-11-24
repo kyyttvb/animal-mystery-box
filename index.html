@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mystery Box: Guess Who?</title>
+<link rel="icon" type="image/png" href="favicon.png">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Nunito -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Nunito', 'Inter', 'sans-serif'],
+          },
+          keyframes: {
+            giftFloat: {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-6px)' },
+            },
+            giftWobble: {
+              '0%, 100%': { transform: 'rotate(0deg) scale(1)' },
+              '20%': { transform: 'rotate(-5deg) scale(1.04)' },
+              '40%': { transform: 'rotate(5deg) scale(1.04)' },
+              '60%': { transform: 'rotate(-3deg) scale(1.02)' },
+              '80%': { transform: 'rotate(3deg) scale(1.02)' },
+            },
+            shakeBox: {
+              '0%, 100%': { transform: 'translateX(0)' },
+              '18%, 54%, 88%': { transform: 'translateX(-7px)' },
+              '36%, 72%': { transform: 'translateX(7px)' },
+            },
+            popIn: {
+              '0%': { opacity: '0', transform: 'scale(0.88) translateY(8px)' },
+              '75%': { opacity: '1', transform: 'scale(1.02) translateY(0)' },
+              '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
+            },
+            lidPopOff: {
+              '0%': { transform: 'translate(0px, 0px) rotate(0deg)', opacity: '1' },
+              '45%': { transform: 'translate(-22px, -56px) rotate(-22deg)', opacity: '1' },
+              '80%': { transform: 'translate(-44px, -78px) rotate(-36deg) scale(0.95)', opacity: '0.6' },
+              '100%': { transform: 'translate(-56px, -88px) rotate(-42deg) scale(0.88)', opacity: '0' },
+            },
+            animalPopOut: {
+              '0%': { transform: 'translateY(88px) scale(0.4)', opacity: '0' },
+              '55%': { transform: 'translateY(-14px) scale(1.08)', opacity: '1' },
+              '80%': { transform: 'translateY(4px) scale(0.98)', opacity: '1' },
+              '100%': { transform: 'translateY(0px) scale(1)', opacity: '1' },
+            },
+            raysGlow: {
+              '0%, 100%': { opacity: '0.75', transform: 'scale(0.96)' },
+              '50%': { opacity: '1', transform: 'scale(1.06)' },
+            },
+            starPop: {
+              '0%': { transform: 'scale(0.6)' },
+              '60%': { transform: 'scale(1.28)' },
+              '100%': { transform: 'scale(1)' },
+            }
+          },
+          animation: {
+            'gift-float': 'giftFloat 3.2s ease-in-out infinite',
+            'gift-wobble': 'giftWobble 0.55s ease-in-out',
+            'shake-box': 'shakeBox 0.42s ease-in-out',
+            'pop-in': 'popIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+            'lid-pop-off': 'lidPopOff 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+            'animal-pop-out': 'animalPopOut 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.16s forwards',
+            'rays-glow': 'raysGlow 2.4s ease-in-out infinite',
+            'star-pop': 'starPop 0.35s ease-out forwards',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      background:
+        radial-gradient(circle at 12% 12%, #fef3c7 0%, transparent 40%),
+        radial-gradient(circle at 88% 85%, #e0e7ff 0%, transparent 42%),
+        linear-gradient(160deg, #fdfbf7 0%, #f8f4eb 55%, #f3eee3 100%);
+      min-height: 100vh;
+    }
+
+    /* Tactile word tiles */
+    .word-tile {
+      box-shadow: 0 3px 0 #cbd5e1, 0 4px 10px rgba(30, 27, 75, 0.06);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.15s ease;
+    }
+    .word-tile:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 0 #94a3b8, 0 6px 14px rgba(30, 27, 75, 0.1);
+    }
+    .word-tile:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #94a3b8;
+    }
+
+    .placed-tile {
+      box-shadow: 0 3px 0 #1e1b4b;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .placed-tile:hover:not(:disabled) {
+      transform: translateY(-2px);
+    }
+
+    #confetti-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 60;
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased selection:bg-amber-200 selection:text-indigo-950">
+
+  <!-- Confetti Canvas -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- Top Header Bar -->
+  <header class="sticky top-0 z-30 bg-[#1e1b4b]/95 backdrop-blur-md border-b border-indigo-900/60 text-white shadow-md">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <!-- Game Title -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center text-white text-xl shadow-md border border-amber-300">
+          🎁
+        </div>
+        <div>
+          <h1 class="font-display font-extrabold text-lg sm:text-xl tracking-tight text-white leading-tight">
+            Mystery Box: <span class="text-amber-300">Guess Who?</span>
+          </h1>
+          <p class="text-xs text-indigo-200 font-medium">
+            Ask 10 questions and guess the hidden animal!
+          </p>
+        </div>
+      </div>
+
+      <!-- Round Pills + Score + Sound Toggle -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <nav id="round-selector" class="flex items-center gap-1.5 bg-indigo-950/80 p-1 rounded-2xl border border-indigo-700/60" aria-label="Round selector">
+          <!-- Populated dynamically -->
+        </nav>
+
+        <!-- Score Badge -->
+        <div class="flex items-center gap-1.5 bg-amber-400/15 border border-amber-400/40 px-3 py-1.5 rounded-2xl">
+          <span class="text-sm">⭐</span>
+          <span id="score-display" class="font-display font-extrabold text-sm text-amber-300">0</span>
+        </div>
+
+        <!-- Compact Sound On/Off Button -->
+        <button
+          id="sound-toggle-btn"
+          type="button"
+          onclick="toggleSound()"
+          aria-label="Toggle sound effects"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-indigo-900/90 hover:bg-indigo-800 text-amber-200 border border-indigo-700/70 text-xs sm:text-sm font-bold transition cursor-pointer"
+        >
+          <span id="sound-icon">🔊</span>
+          <span id="sound-label" class="hidden sm:inline">Sound On</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Side-by-Side Workspace (Gift Box Left, Builder/Guess Right) -->
+  <main id="game-screen" class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7">
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+
+      <!-- LEFT COLUMN (5 cols on md+): Wrapped Gift Box + 10-Star Progress -->
+      <section class="md:col-span-5 bg-white/95 rounded-3xl border border-amber-200/90 p-5 sm:p-6 shadow-sm relative overflow-hidden">
+        <!-- Soft decorative corner circles -->
+        <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-rose-100/50 pointer-events-none"></div>
+        <div class="absolute -bottom-12 -left-12 w-36 h-36 rounded-full bg-amber-100/60 pointer-events-none"></div>
+
+        <!-- Top Round Badge -->
+        <div class="relative z-10 flex items-center justify-between gap-2 mb-3">
+          <span id="round-badge" class="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-indigo-950 text-amber-300 font-display font-extrabold text-xs sm:text-sm">
+            Round 1 of 4
+          </span>
+          <span id="phase-badge" class="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full">
+            Step 1: Questions
+          </span>
+        </div>
+
+        <!-- Gift Box Stage -->
+        <div class="relative z-10 flex flex-col items-center">
+          <div id="gift-box-stage" class="relative w-60 h-64 sm:w-64 sm:h-68 flex items-end justify-center select-none">
+
+            <!-- Golden Rays Behind Animal (Shown on Reveal) -->
+            <div id="golden-rays-layer" class="hidden absolute inset-x-0 top-0 bottom-14 flex items-center justify-center pointer-events-none animate-rays-glow">
+              <svg viewBox="0 0 260 220" class="w-full h-full overflow-visible" aria-hidden="true">
+                <defs>
+                  <radialGradient id="giftRayGrad" cx="50%" cy="75%" r="65%">
+                    <stop offset="0%" stop-color="#fde047" stop-opacity="0.95" />
+                    <stop offset="55%" stop-color="#f59e0b" stop-opacity="0.35" />
+                    <stop offset="100%" stop-color="#f59e0b" stop-opacity="0" />
+                  </radialGradient>
+                </defs>
+                <polygon points="130,175 16,12 72,4" fill="url(#giftRayGrad)" />
+                <polygon points="130,175 94,0 166,0" fill="url(#giftRayGrad)" />
+                <polygon points="130,175 188,4 244,12" fill="url(#giftRayGrad)" />
+              </svg>
+            </div>
+
+            <!-- Layer 1: Gift Box Open Interior Rim -->
+            <div class="absolute bottom-3 w-48 sm:w-52 h-32 z-10 pointer-events-none">
+              <svg viewBox="0 0 220 135" class="w-full h-full" aria-hidden="true">
+                <rect x="20" y="6" width="180" height="40" rx="8" fill="#881337" stroke="#fbbf24" stroke-width="2.5" />
+              </svg>
+            </div>
+
+            <!-- Layer 2: Hidden Animal Illustration (Rises out when guessed!) -->
+            <div id="animal-reveal-container" class="hidden absolute bottom-14 z-20 w-44 h-44 sm:w-48 sm:h-48 flex items-center justify-center opacity-0">
+              <!-- Animal SVG injected here -->
+            </div>
+
+            <!-- Layer 3: Wrapped Present Box Body (Vertical & Horizontal Ribbons + "?" Tag) -->
+            <div id="gift-box-body" class="relative z-30 w-48 sm:w-52 h-32 animate-gift-float">
+              <svg viewBox="0 0 220 135" class="w-full h-full drop-shadow-lg" aria-label="Mystery Gift Box">
+                <defs>
+                  <linearGradient id="wrapBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#f43f5e" />
+                    <stop offset="55%" stop-color="#e11d48" />
+                    <stop offset="100%" stop-color="#be123c" />
+                  </linearGradient>
+                  <linearGradient id="ribbonGoldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#eab308" />
+                    <stop offset="50%" stop-color="#fde047" />
+                    <stop offset="100%" stop-color="#ca8a04" />
+                  </linearGradient>
+                  <linearGradient id="ribbonHorizGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#fde047" />
+                    <stop offset="50%" stop-color="#facc15" />
+                    <stop offset="100%" stop-color="#ca8a04" />
+                  </linearGradient>
+                </defs>
+
+                <!-- Main Wrapped Gift Box -->
+                <rect x="16" y="14" width="188" height="114" rx="14" fill="url(#wrapBodyGrad)" stroke="#9f1239" stroke-width="3" />
+
+                <!-- Subtle Polka Dots on Wrapping Paper -->
+                <circle cx="44" cy="36" r="4" fill="#fda4af" opacity="0.45" />
+                <circle cx="68" cy="50" r="3" fill="#fda4af" opacity="0.45" />
+                <circle cx="42" cy="96" r="3.5" fill="#fda4af" opacity="0.45" />
+                <circle cx="72" cy="108" r="4" fill="#fda4af" opacity="0.45" />
+                <circle cx="152" cy="36" r="3.5" fill="#fda4af" opacity="0.45" />
+                <circle cx="178" cy="48" r="4" fill="#fda4af" opacity="0.45" />
+                <circle cx="148" cy="106" r="4" fill="#fda4af" opacity="0.45" />
+                <circle cx="176" cy="94" r="3" fill="#fda4af" opacity="0.45" />
+
+                <!-- Horizontal Ribbon -->
+                <rect x="16" y="59" width="188" height="22" fill="url(#ribbonHorizGrad)" />
+                <line x1="16" y1="62" x2="204" y2="62" stroke="#fef9c3" stroke-width="1.5" opacity="0.8" />
+                <line x1="16" y1="78" x2="204" y2="78" stroke="#a16207" stroke-width="1.5" opacity="0.6" />
+
+                <!-- Vertical Ribbon -->
+                <rect x="97" y="14" width="26" height="114" fill="url(#ribbonGoldGrad)" />
+                <line x1="101" y1="14" x2="101" y2="128" stroke="#fef9c3" stroke-width="1.5" opacity="0.8" />
+                <line x1="119" y1="14" x2="119" y2="128" stroke="#a16207" stroke-width="1.5" opacity="0.6" />
+
+                <!-- Hanging "?" Gift Tag -->
+                <g transform="translate(110, 70) rotate(-10)">
+                  <!-- String -->
+                  <line x1="0" y1="-4" x2="18" y2="8" stroke="#fef08a" stroke-width="2.5" stroke-linecap="round" />
+                  <!-- Tag Card -->
+                  <rect x="12" y="2" width="38" height="44" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="2.5" />
+                  <circle cx="19" cy="10" r="2.5" fill="#f59e0b" />
+                  <text x="32" y="34" text-anchor="middle" fill="#1e1b4b" font-family="Nunito, sans-serif" font-weight="900" font-size="25">?</text>
+                </g>
+              </svg>
+            </div>
+
+            <!-- Layer 4: Gift Box Lid with Big Decorative Bow -->
+            <div id="gift-box-lid" class="absolute bottom-[98px] sm:bottom-[102px] z-40 w-52 sm:w-56 h-24 pointer-events-none">
+              <svg viewBox="0 0 236 104" class="w-full h-full drop-shadow-md" aria-hidden="true">
+                <defs>
+                  <linearGradient id="lidWrapGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#fb7185" />
+                    <stop offset="100%" stop-color="#e11d48" />
+                  </linearGradient>
+                  <linearGradient id="bowGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#fef08a" />
+                    <stop offset="45%" stop-color="#facc15" />
+                    <stop offset="100%" stop-color="#ca8a04" />
+                  </linearGradient>
+                </defs>
+
+                <!-- Bow Ribbon Tails -->
+                <path d="M112 52 L84 74 L96 76 L116 56 Z" fill="#eab308" />
+                <path d="M124 52 L152 74 L140 76 L120 56 Z" fill="#eab308" />
+
+                <!-- Big Left Bow Loop -->
+                <path d="M114 48 C86 14, 52 24, 62 48 C68 62, 96 58, 114 52 Z" fill="url(#bowGoldGrad)" stroke="#ca8a04" stroke-width="2.5" />
+                <path d="M106 47 C88 28, 70 34, 74 46" fill="none" stroke="#fef9c3" stroke-width="2.5" stroke-linecap="round" />
+
+                <!-- Big Right Bow Loop -->
+                <path d="M122 48 C150 14, 184 24, 174 48 C168 62, 140 58, 122 52 Z" fill="url(#bowGoldGrad)" stroke="#ca8a04" stroke-width="2.5" />
+                <path d="M130 47 C148 28, 166 34, 162 46" fill="none" stroke="#fef9c3" stroke-width="2.5" stroke-linecap="round" />
+
+                <!-- Center Bow Knot -->
+                <rect x="108" y="38" width="20" height="20" rx="7" fill="#fde047" stroke="#ca8a04" stroke-width="2.5" />
+
+                <!-- Lid Overhanging Rim -->
+                <rect x="8" y="56" width="220" height="34" rx="10" fill="url(#lidWrapGrad)" stroke="#9f1239" stroke-width="3" />
+                <!-- Vertical Ribbon Band on Lid -->
+                <rect x="104" y="56" width="28" height="34" fill="url(#bowGoldGrad)" />
+                <line x1="108" y1="56" x2="108" y2="90" stroke="#fef9c3" stroke-width="1.5" />
+                <line x1="128" y1="56" x2="128" y2="90" stroke="#a16207" stroke-width="1.5" />
+              </svg>
+            </div>
+
+          </div>
+
+          <!-- Progress Indicator: "Clues unlocked: 0 / 10" + 10 Small Stars -->
+          <div class="w-full mt-3 pt-4 border-t border-slate-100 text-center">
+            <p id="clues-progress-text" class="font-display font-extrabold text-sm sm:text-base text-indigo-950 mb-2.5">
+              Clues unlocked: 0 / 10
+            </p>
+            <div id="progress-stars-row" class="flex items-center justify-center gap-1.5 flex-wrap" aria-label="10 clues progress stars">
+              <!-- 10 star indicators rendered dynamically -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT COLUMN (7 cols on md+): Two-Phase Interactive Panel -->
+      <div class="md:col-span-7 flex flex-col gap-5">
+
+        <!-- PHASE 1: Question Builder Panel (Questions 1 to 10) -->
+        <section id="phase1-builder-panel" class="bg-white/95 rounded-3xl border-2 border-indigo-900/15 p-5 sm:p-7 shadow-sm">
+          <!-- Header -->
+          <div class="flex items-center gap-3 mb-4">
+            <span id="question-number-badge" class="w-10 h-10 rounded-2xl bg-indigo-950 text-amber-300 font-display font-black text-base sm:text-lg flex items-center justify-center shrink-0">
+              1
+            </span>
+            <div>
+              <h2 id="question-builder-heading" class="font-display font-extrabold text-lg sm:text-xl text-indigo-950">
+                Build Question #1 of 10
+              </h2>
+              <p class="text-xs sm:text-sm text-slate-600 font-medium">
+                Tap the words in order to make a question.
+              </p>
+            </div>
+          </div>
+
+          <!-- Sentence Construction Slot -->
+          <div id="sentence-drop-zone" class="min-h-[68px] p-3.5 rounded-2xl bg-[#fdfbf7] border-2 border-dashed border-indigo-300 flex flex-wrap items-center gap-2 mb-4 transition-colors">
+            <!-- Placed word tiles appear here -->
+          </div>
+
+          <!-- Shuffled Word Tiles Bank -->
+          <div id="word-bank-zone" class="flex flex-wrap items-center gap-2.5 mb-5 min-h-[48px]">
+            <!-- Available word tiles appear here -->
+          </div>
+
+          <!-- Wrong Order Feedback Message -->
+          <div id="sentence-error-alert" class="hidden mb-4 px-4 py-3 rounded-2xl bg-rose-50 border border-rose-300 text-rose-800 text-xs sm:text-sm font-bold flex items-center gap-2">
+            <span>⚠️</span>
+            <span id="sentence-error-text">Not quite! Check the word order and try again.</span>
+          </div>
+
+          <!-- Unlocked Answer Card (Shown after checking a correct question) -->
+          <div id="question-solved-card" class="hidden mb-5 p-4 rounded-2xl border-2 bg-slate-50 animate-pop-in">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Question &amp; Answer
+            </p>
+            <p id="solved-question-text" class="font-display font-extrabold text-base sm:text-lg text-indigo-950 mb-2">
+              Does it live near water?
+            </p>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <span id="solved-answer-pill" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-display font-black text-sm sm:text-base text-white bg-emerald-600">
+                Yes, it does.
+              </span>
+              <button
+                id="next-question-btn"
+                type="button"
+                onclick="advanceFromSolvedQuestion()"
+                class="px-5 py-2.5 rounded-2xl bg-indigo-950 hover:bg-indigo-900 active:scale-[0.98] text-amber-300 font-display font-extrabold text-sm sm:text-base shadow-md transition cursor-pointer"
+              >
+                Next Question →
+              </button>
+            </div>
+          </div>
+
+          <!-- Action Buttons: Clear & Check Question -->
+          <div id="builder-controls-row" class="flex items-center justify-between gap-3">
+            <button
+              id="clear-sentence-btn"
+              type="button"
+              onclick="clearCurrentSentence()"
+              class="px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer"
+            >
+              Clear
+            </button>
+
+            <button
+              id="check-sentence-btn"
+              type="button"
+              onclick="checkCurrentSentence()"
+              class="px-6 py-3 rounded-2xl bg-indigo-950 hover:bg-indigo-900 active:scale-[0.98] text-amber-300 font-display font-extrabold text-sm sm:text-base shadow-md shadow-indigo-950/15 transition cursor-pointer"
+            >
+              Check Question ✓
+            </button>
+          </div>
+        </section>
+
+        <!-- PHASE 2: Stacked Guess Input (Top) + All 10 Clues (Bottom) -->
+        <div id="phase2-guess-wrapper" class="hidden flex flex-col gap-5 animate-pop-in">
+
+          <!-- TOP SECTION: Animal Guess Input Card -->
+          <section id="animal-guess-card" class="bg-white rounded-3xl border-2 border-amber-400 p-5 sm:p-6 shadow-md">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div class="flex items-center gap-3">
+                <span class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl shrink-0">
+                  🔎
+                </span>
+                <div>
+                  <h2 class="font-display font-extrabold text-lg sm:text-xl text-indigo-950">
+                    Who is inside the gift box?
+                  </h2>
+                  <p class="text-xs sm:text-sm text-slate-600 font-medium">
+                    Read your 10 clues below and type the animal's name.
+                  </p>
+                </div>
+              </div>
+
+              <span id="guess-attempts-badge" class="px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-600">
+                Attempts: 0
+              </span>
+            </div>
+
+            <form id="animal-guess-form" onsubmit="handleAnimalGuess(event)" class="flex flex-col sm:flex-row gap-3">
+              <input
+                id="animal-guess-input"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Type the animal's name..."
+                class="flex-1 px-4 py-3.5 rounded-2xl border-2 border-indigo-200 focus:border-indigo-900 focus:ring-4 focus:ring-amber-200/60 outline-none font-display font-bold text-base sm:text-lg text-indigo-950 placeholder:font-normal placeholder:text-slate-400 transition"
+              />
+              <button
+                type="submit"
+                class="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-[0.98] text-indigo-950 font-display font-black text-base shadow-md shadow-amber-200 transition cursor-pointer shrink-0"
+              >
+                Guess! 🎁
+              </button>
+            </form>
+
+            <!-- Wrong Guess Feedback -->
+            <div id="animal-guess-feedback" class="hidden mt-3 px-4 py-3 rounded-2xl bg-rose-50 border border-rose-300 text-rose-800 text-xs sm:text-sm font-bold">
+              Try again! Read the clues carefully.
+            </div>
+
+            <!-- Optional "Show first letter" button after 3 wrong guesses -->
+            <div id="first-letter-helper" class="hidden mt-3 flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+              <span id="first-letter-text" class="text-xs sm:text-sm font-bold text-indigo-900"></span>
+              <button
+                id="show-first-letter-btn"
+                type="button"
+                onclick="revealFirstLetterHint()"
+                class="px-3.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 text-xs font-extrabold transition cursor-pointer"
+              >
+                Show first letter
+              </button>
+            </div>
+          </section>
+
+          <!-- Round Victory Banner (Replaces Guess Card when animal is guessed!) -->
+          <section id="round-victory-card" class="hidden bg-gradient-to-br from-emerald-50 via-white to-amber-50 rounded-3xl border-2 border-emerald-400 p-5 sm:p-6 shadow-md animate-pop-in">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div class="text-center sm:text-left">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-xs mb-1.5">
+                  🎉 Awesome Job!
+                </span>
+                <h2 id="victory-animal-heading" class="font-display font-black text-2xl sm:text-3xl text-indigo-950">
+                  It's a Frog!
+                </h2>
+                <p id="victory-subtext" class="text-xs sm:text-sm font-bold text-emerald-800 mt-0.5">
+                  You solved it in 1 guess!
+                </p>
+              </div>
+
+              <button
+                id="next-round-btn"
+                type="button"
+                onclick="goToNextRound()"
+                class="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-display font-extrabold text-sm sm:text-base shadow-md shadow-emerald-200 transition cursor-pointer shrink-0"
+              >
+                Next Round →
+              </button>
+            </div>
+          </section>
+
+          <!-- BOTTOM SECTION: All 10 Unlocked Clues -->
+          <section id="unlocked-clues-card" class="bg-white/95 rounded-3xl border border-amber-200/90 p-5 sm:p-6 shadow-sm">
+            <div class="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-slate-100">
+              <h3 class="font-display font-extrabold text-base sm:text-lg text-indigo-950 flex items-center gap-2">
+                <span>📋</span> Your 10 Clues
+              </h3>
+              <span class="text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                10 / 10 Unlocked
+              </span>
+            </div>
+
+            <div id="all-clues-list" class="grid grid-cols-1 gap-2">
+              <!-- All 10 Q&A clues rendered here in Phase 2 -->
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Final 4-Round Celebration Screen -->
+  <section id="final-summary-screen" class="hidden max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 animate-pop-in">
+    <div class="bg-white rounded-3xl border-2 border-amber-300 shadow-xl p-6 sm:p-10 text-center">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100 text-amber-900 font-display font-extrabold text-sm mb-4">
+        🏆 All 4 Mystery Boxes Opened!
+      </div>
+
+      <h2 class="font-display font-black text-2xl sm:text-4xl text-indigo-950 mb-2">
+        Congratulations! You Guessed Every Animal!
+      </h2>
+      <p class="text-sm sm:text-base text-slate-600 max-w-xl mx-auto mb-6">
+        You built 40 questions and solved all 4 gift boxes!
+      </p>
+
+      <!-- Final Score -->
+      <div class="inline-flex flex-col items-center justify-center bg-indigo-950 text-white rounded-3xl px-8 py-4 shadow-lg mb-8 border-2 border-amber-400/50">
+        <span class="text-xs uppercase tracking-wider font-bold text-indigo-200">Final Score</span>
+        <div class="flex items-center gap-2 mt-1">
+          <span class="text-3xl">⭐</span>
+          <span id="final-score-display" class="font-display font-black text-4xl sm:text-5xl text-amber-300">0</span>
+          <span class="text-sm font-bold text-indigo-200">pts</span>
+        </div>
+      </div>
+
+      <!-- 4 Revealed Animals Grid -->
+      <div id="summary-animals-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        <!-- Populated dynamically -->
+      </div>
+
+      <button
+        type="button"
+        onclick="restartAllRounds()"
+        class="px-8 py-4 rounded-2xl bg-indigo-950 hover:bg-indigo-900 active:scale-[0.98] text-amber-300 font-display font-extrabold text-base sm:text-lg shadow-lg transition cursor-pointer"
+      >
+        🔄 Play Again
+      </button>
+    </div>
+  </section>
+
+  <script>
+    /**
+     * =========================================================================
+     * 1. VIBRANT CUSTOM SVG ANIMAL ILLUSTRATIONS (FROG, PENGUIN, ELEPHANT, BEE)
+     * =========================================================================
+     */
+    const ANIMAL_SVGS = {
+      frog: `
+        <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-md" aria-label="Frog">
+          <!-- Back Jumping Legs -->
+          <path d="M54 138 Q26 136 32 162 Q42 172 64 166" fill="#16a34a" stroke="#15803d" stroke-width="3" stroke-linecap="round" />
+          <path d="M146 138 Q174 136 168 162 Q158 172 136 166" fill="#16a34a" stroke="#15803d" stroke-width="3" stroke-linecap="round" />
+          <!-- Plump Green Body -->
+          <ellipse cx="100" cy="130" rx="50" ry="42" fill="#22c55e" />
+          <!-- Warm Lime Belly -->
+          <ellipse cx="100" cy="136" rx="34" ry="28" fill="#bef264" />
+          <!-- Front Legs -->
+          <path d="M74 136 L68 172 M62 172 L74 172" stroke="#15803d" stroke-width="6" stroke-linecap="round" />
+          <path d="M126 136 L132 172 M126 172 L138 172" stroke="#15803d" stroke-width="6" stroke-linecap="round" />
+          <!-- Big Frog Head -->
+          <ellipse cx="100" cy="86" rx="54" ry="36" fill="#22c55e" />
+          <!-- Bulging Eye Bumps -->
+          <circle cx="72" cy="54" r="22" fill="#22c55e" />
+          <circle cx="128" cy="54" r="22" fill="#22c55e" />
+          <!-- Eyes -->
+          <circle cx="72" cy="54" r="14" fill="#ffffff" />
+          <circle cx="74" cy="54" r="7.5" fill="#0f172a" />
+          <circle cx="76" cy="51" r="2.8" fill="#ffffff" />
+          <circle cx="128" cy="54" r="14" fill="#ffffff" />
+          <circle cx="126" cy="54" r="7.5" fill="#0f172a" />
+          <circle cx="128" cy="51" r="2.8" fill="#ffffff" />
+          <!-- Rosy Cheeks & Wide Happy Smile -->
+          <ellipse cx="62" cy="90" rx="8" ry="4.5" fill="#fda4af" opacity="0.85" />
+          <ellipse cx="138" cy="90" rx="8" ry="4.5" fill="#fda4af" opacity="0.85" />
+          <path d="M68 92 Q100 116 132 92" fill="none" stroke="#14532d" stroke-width="4" stroke-linecap="round" />
+        </svg>
+      `,
+      penguin: `
+        <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-md" aria-label="Penguin">
+          <!-- Orange Feet -->
+          <ellipse cx="78" cy="172" rx="18" ry="8" fill="#f97316" />
+          <ellipse cx="122" cy="172" rx="18" ry="8" fill="#f97316" />
+          <!-- Flippers / Wings -->
+          <ellipse cx="46" cy="116" rx="14" ry="36" transform="rotate(18 46 116)" fill="#1e293b" />
+          <ellipse cx="154" cy="116" rx="14" ry="36" transform="rotate(-18 154 116)" fill="#1e293b" />
+          <!-- Black Body -->
+          <ellipse cx="100" cy="114" rx="48" ry="60" fill="#1e293b" />
+          <!-- White Belly -->
+          <ellipse cx="100" cy="122" rx="34" ry="46" fill="#ffffff" />
+          <!-- Head -->
+          <circle cx="100" cy="64" r="36" fill="#1e293b" />
+          <!-- White Face Patches -->
+          <ellipse cx="87" cy="66" rx="14" ry="18" fill="#ffffff" />
+          <ellipse cx="113" cy="66" rx="14" ry="18" fill="#ffffff" />
+          <!-- Cute Red Bowtie -->
+          <polygon points="100,98 88,92 88,104" fill="#ef4444" />
+          <polygon points="100,98 112,92 112,104" fill="#ef4444" />
+          <circle cx="100" cy="98" r="3" fill="#b91c1c" />
+          <!-- Eyes & Cheeks -->
+          <circle cx="86" cy="62" r="5" fill="#0f172a" />
+          <circle cx="87.5" cy="60.5" r="1.8" fill="#ffffff" />
+          <circle cx="114" cy="62" r="5" fill="#0f172a" />
+          <circle cx="115.5" cy="60.5" r="1.8" fill="#ffffff" />
+          <ellipse cx="78" cy="72" rx="5" ry="3" fill="#fda4af" opacity="0.85" />
+          <ellipse cx="122" cy="72" rx="5" ry="3" fill="#fda4af" opacity="0.85" />
+          <!-- Golden-Orange Beak -->
+          <polygon points="90,72 110,72 100,86" fill="#f59e0b" stroke="#d97706" stroke-width="1.5" stroke-linejoin="round" />
+        </svg>
+      `,
+      elephant: `
+        <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-md" aria-label="Elephant">
+          <!-- Big Floppy Ears -->
+          <ellipse cx="48" cy="96" rx="34" ry="44" fill="#94a3b8" stroke="#64748b" stroke-width="3" />
+          <ellipse cx="48" cy="96" rx="22" ry="30" fill="#fbcfe8" opacity="0.7" />
+          <ellipse cx="152" cy="96" rx="34" ry="44" fill="#94a3b8" stroke="#64748b" stroke-width="3" />
+          <ellipse cx="152" cy="96" rx="22" ry="30" fill="#fbcfe8" opacity="0.7" />
+          <!-- Plump Gray Body -->
+          <rect x="56" y="106" width="88" height="64" rx="30" fill="#94a3b8" />
+          <!-- Head -->
+          <circle cx="100" cy="84" r="44" fill="#cbd5e1" />
+          <!-- Two White Tusks -->
+          <path d="M76 108 Q62 126 74 136 Q82 124 84 110 Z" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" />
+          <path d="M124 108 Q138 126 126 136 Q118 124 116 110 Z" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" />
+          <!-- Long Curved Trunk -->
+          <path d="M88 94 Q88 148 118 146 Q132 144 128 130 Q124 122 116 128 Q106 132 108 94 Z" fill="#94a3b8" stroke="#64748b" stroke-width="2.5" stroke-linejoin="round" />
+          <path d="M93 108 Q100 110 105 108" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" />
+          <path d="M94 120 Q101 122 106 120" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" />
+          <!-- Eyes & Cheeks -->
+          <circle cx="82" cy="78" r="6" fill="#0f172a" />
+          <circle cx="84" cy="76" r="2.2" fill="#ffffff" />
+          <circle cx="118" cy="78" r="6" fill="#0f172a" />
+          <circle cx="120" cy="76" r="2.2" fill="#ffffff" />
+          <ellipse cx="72" cy="90" rx="6" ry="3.5" fill="#fda4af" opacity="0.75" />
+          <ellipse cx="128" cy="90" rx="6" ry="3.5" fill="#fda4af" opacity="0.75" />
+        </svg>
+      `,
+      bee: `
+        <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-md" aria-label="Bee">
+          <!-- Translucent Wings -->
+          <ellipse cx="72" cy="64" rx="28" ry="18" transform="rotate(-25 72 64)" fill="#e0f2fe" stroke="#7dd3fc" stroke-width="3" opacity="0.9" />
+          <ellipse cx="128" cy="64" rx="28" ry="18" transform="rotate(25 128 64)" fill="#e0f2fe" stroke="#7dd3fc" stroke-width="3" opacity="0.9" />
+          <!-- Antennae -->
+          <path d="M86 58 Q74 34 62 38" fill="none" stroke="#1e293b" stroke-width="4" stroke-linecap="round" />
+          <circle cx="62" cy="38" r="5" fill="#facc15" stroke="#1e293b" stroke-width="2.5" />
+          <path d="M114 58 Q126 34 138 38" fill="none" stroke="#1e293b" stroke-width="4" stroke-linecap="round" />
+          <circle cx="138" cy="38" r="5" fill="#facc15" stroke="#1e293b" stroke-width="2.5" />
+          <!-- Little Stinger -->
+          <polygon points="94,162 106,162 100,178" fill="#1e293b" />
+          <!-- Yellow & Black Striped Body -->
+          <ellipse cx="100" cy="116" rx="44" ry="50" fill="#facc15" stroke="#1e293b" stroke-width="3" />
+          <path d="M58 104 Q100 114 142 104" fill="none" stroke="#1e293b" stroke-width="11" />
+          <path d="M58 126 Q100 136 142 126" fill="none" stroke="#1e293b" stroke-width="11" />
+          <path d="M68 148 Q100 156 132 148" fill="none" stroke="#1e293b" stroke-width="9" />
+          <!-- Cute Bee Head -->
+          <circle cx="100" cy="74" r="30" fill="#fde047" stroke="#1e293b" stroke-width="3" />
+          <!-- Eyes, Cheeks & Smile -->
+          <circle cx="88" cy="70" r="5.5" fill="#0f172a" />
+          <circle cx="90" cy="68" r="2" fill="#ffffff" />
+          <circle cx="112" cy="70" r="5.5" fill="#0f172a" />
+          <circle cx="114" cy="68" r="2" fill="#ffffff" />
+          <ellipse cx="80" cy="80" rx="5.5" ry="3.2" fill="#fda4af" opacity="0.85" />
+          <ellipse cx="120" cy="80" rx="5.5" ry="3.2" fill="#fda4af" opacity="0.85" />
+          <path d="M91 83 Q100 91 109 83" fill="none" stroke="#1e293b" stroke-width="3" stroke-linecap="round" />
+        </svg>
+      `
+    };
+
+    /**
+     * =========================================================================
+     * 2. 4-ROUND ESL DATASET (10 "Does it + V1?" QUESTIONS PER ROUND)
+     * =========================================================================
+     */
+    const GAME_ROUNDS = [
+      {
+        round: 1,
+        animalKey: "frog",
+        animalName: "Frog",
+        article: "a",
+        acceptedAnswers: ["frog", "frogs"],
+        clues: [
+          { tokens: ["Does", "it", "live", "near", "water", "?"], text: "Does it live near water?", answer: true },
+          { tokens: ["Does", "it", "have", "four", "legs", "?"], text: "Does it have four legs?", answer: true },
+          { tokens: ["Does", "it", "jump", "very", "high", "?"], text: "Does it jump very high?", answer: true },
+          { tokens: ["Does", "it", "have", "green", "skin", "?"], text: "Does it have green skin?", answer: true },
+          { tokens: ["Does", "it", "eat", "small", "insects", "?"], text: "Does it eat small insects?", answer: true },
+          { tokens: ["Does", "it", "have", "a", "tail", "?"], text: "Does it have a tail?", answer: false },
+          { tokens: ["Does", "it", "have", "fur", "?"], text: "Does it have fur?", answer: false },
+          { tokens: ["Does", "it", "fly", "in", "the", "sky", "?"], text: "Does it fly in the sky?", answer: false },
+          { tokens: ["Does", "it", "live", "in", "the", "desert", "?"], text: "Does it live in the desert?", answer: false },
+          { tokens: ["Does", "it", "say", "ribbit", "?"], text: "Does it say ribbit?", answer: true }
+        ]
+      },
+      {
+        round: 2,
+        animalKey: "penguin",
+        animalName: "Penguin",
+        article: "a",
+        acceptedAnswers: ["penguin", "penguins"],
+        clues: [
+          { tokens: ["Does", "it", "have", "two", "wings", "?"], text: "Does it have two wings?", answer: true },
+          { tokens: ["Does", "it", "fly", "in", "the", "sky", "?"], text: "Does it fly in the sky?", answer: false },
+          { tokens: ["Does", "it", "swim", "very", "fast", "?"], text: "Does it swim very fast?", answer: true },
+          { tokens: ["Does", "it", "eat", "fresh", "fish", "?"], text: "Does it eat fresh fish?", answer: true },
+          { tokens: ["Does", "it", "live", "in", "cold", "places", "?"], text: "Does it live in cold places?", answer: true },
+          { tokens: ["Does", "it", "have", "black", "and", "white", "feathers", "?"], text: "Does it have black and white feathers?", answer: true },
+          { tokens: ["Does", "it", "have", "four", "legs", "?"], text: "Does it have four legs?", answer: false },
+          { tokens: ["Does", "it", "climb", "tall", "trees", "?"], text: "Does it climb tall trees?", answer: false },
+          { tokens: ["Does", "it", "lay", "eggs", "?"], text: "Does it lay eggs?", answer: true },
+          { tokens: ["Does", "it", "walk", "on", "ice", "and", "snow", "?"], text: "Does it walk on ice and snow?", answer: true }
+        ]
+      },
+      {
+        round: 3,
+        animalKey: "elephant",
+        animalName: "Elephant",
+        article: "an",
+        acceptedAnswers: ["elephant", "elephants"],
+        clues: [
+          { tokens: ["Does", "it", "live", "on", "land", "?"], text: "Does it live on land?", answer: true },
+          { tokens: ["Does", "it", "have", "four", "thick", "legs", "?"], text: "Does it have four thick legs?", answer: true },
+          { tokens: ["Does", "it", "have", "very", "big", "ears", "?"], text: "Does it have very big ears?", answer: true },
+          { tokens: ["Does", "it", "have", "a", "long", "trunk", "?"], text: "Does it have a long trunk?", answer: true },
+          { tokens: ["Does", "it", "eat", "meat", "?"], text: "Does it eat meat?", answer: false },
+          { tokens: ["Does", "it", "eat", "leaves", "and", "fruit", "?"], text: "Does it eat leaves and fruit?", answer: true },
+          { tokens: ["Does", "it", "have", "gray", "skin", "?"], text: "Does it have gray skin?", answer: true },
+          { tokens: ["Does", "it", "jump", "high", "?"], text: "Does it jump high?", answer: false },
+          { tokens: ["Does", "it", "live", "in", "the", "ocean", "?"], text: "Does it live in the ocean?", answer: false },
+          { tokens: ["Does", "it", "weigh", "a", "lot", "?"], text: "Does it weigh a lot?", answer: true }
+        ]
+      },
+      {
+        round: 4,
+        animalKey: "bee",
+        animalName: "Bee",
+        article: "a",
+        acceptedAnswers: ["bee", "bees", "honeybee", "honeybees", "honey bee", "honey bees"],
+        clues: [
+          { tokens: ["Does", "it", "fly", "in", "the", "air", "?"], text: "Does it fly in the air?", answer: true },
+          { tokens: ["Does", "it", "have", "six", "legs", "?"], text: "Does it have six legs?", answer: true },
+          { tokens: ["Does", "it", "have", "yellow", "and", "black", "stripes", "?"], text: "Does it have yellow and black stripes?", answer: true },
+          { tokens: ["Does", "it", "make", "sweet", "honey", "?"], text: "Does it make sweet honey?", answer: true },
+          { tokens: ["Does", "it", "visit", "many", "flowers", "?"], text: "Does it visit many flowers?", answer: true },
+          { tokens: ["Does", "it", "live", "in", "a", "hive", "?"], text: "Does it live in a hive?", answer: true },
+          { tokens: ["Does", "it", "have", "sharp", "teeth", "?"], text: "Does it have sharp teeth?", answer: false },
+          { tokens: ["Does", "it", "swim", "underwater", "?"], text: "Does it swim underwater?", answer: false },
+          { tokens: ["Does", "it", "have", "fur", "like", "a", "cat", "?"], text: "Does it have fur like a cat?", answer: false },
+          { tokens: ["Does", "it", "make", "a", "buzzing", "sound", "?"], text: "Does it make a buzzing sound?", answer: true }
+        ]
+      }
+    ];
+
+    /**
+     * =========================================================================
+     * 3. GAME STATE
+     * =========================================================================
+     */
+    const state = {
+      roundIndex: 0,
+      score: 0,
+      soundEnabled: true,
+      completedRounds: new Set(),
+      roundAttemptsMap: {},
+      activeClueIndex: 0,
+      unlockedCluesCount: 0,
+      currentQuestionChecked: false,
+      bankTokens: [],
+      placedTokens: [],
+      guessAttempts: 0,
+      firstLetterShown: false,
+      roundSolved: false
+    };
+
+    /**
+     * =========================================================================
+     * 4. WEB AUDIO API SOUND EFFECTS (NO VOICE / NO TTS)
+     * =========================================================================
+     */
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) audioCtx = new AudioCtx();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
+      return audioCtx;
+    }
+
+    function playTone(freq, type = 'sine', duration = 0.14, delay = 0, volume = 0.12) {
+      if (!state.soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+
+        gain.gain.setValueAtTime(volume, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + duration);
+      } catch (e) {
+        // Ignore audio restrictions if any
+      }
+    }
+
+    // Soft pop when selecting a word tile
+    function playSelectPop() {
+      playTone(620, 'sine', 0.08, 0, 0.11);
+    }
+
+    // Lower pop when deselecting a placed word tile
+    function playDeselectPop() {
+      playTone(410, 'sine', 0.08, 0, 0.1);
+    }
+
+    // Cheerful chime when a question or guess is correct
+    function playSuccessChime() {
+      playTone(523.25, 'sine', 0.14, 0, 0.13);     // C5
+      playTone(659.25, 'sine', 0.16, 0.08, 0.13);  // E5
+      playTone(783.99, 'sine', 0.24, 0.16, 0.14);  // G5
+    }
+
+    // Gentle low buzz when incorrect
+    function playErrorBuzz() {
+      playTone(210, 'sawtooth', 0.14, 0, 0.06);
+      playTone(175, 'sawtooth', 0.18, 0.1, 0.06);
+    }
+
+    // Celebratory fanfare when the gift box opens
+    function playBoxOpenFanfare() {
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((freq, idx) => {
+        playTone(freq, 'triangle', 0.28, idx * 0.09, 0.15);
+      });
+    }
+
+    function toggleSound() {
+      state.soundEnabled = !state.soundEnabled;
+      document.getElementById('sound-icon').textContent = state.soundEnabled ? '🔊' : '🔇';
+      document.getElementById('sound-label').textContent = state.soundEnabled ? 'Sound On' : 'Sound Off';
+      if (state.soundEnabled) playSelectPop();
+    }
+
+    /**
+     * =========================================================================
+     * 5. WORD SCRAMBLE & INPUT NORMALIZATION HELPERS
+     * =========================================================================
+     */
+    function scrambleTokens(tokens) {
+      if (tokens.length <= 1) return [...tokens];
+      const arr = [...tokens];
+      let tries = 0;
+      do {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        tries++;
+      } while (arr.join(' ') === tokens.join(' ') && tries < 15);
+      return arr;
+    }
+
+    function normalizeAnimalInput(raw) {
+      return raw
+        .toLowerCase()
+        .trim()
+        .replace(/^(a|an|the)\s+/i, '')
+        .replace(/[^a-z\s-]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    /**
+     * =========================================================================
+     * 6. ROUND SETUP & NAVIGATION
+     * =========================================================================
+     */
+    function loadRound(roundIdx) {
+      state.roundIndex = roundIdx;
+      state.activeClueIndex = 0;
+      state.unlockedCluesCount = 0;
+      state.currentQuestionChecked = false;
+      state.guessAttempts = 0;
+      state.firstLetterShown = false;
+      state.roundSolved = false;
+
+      document.getElementById('final-summary-screen').classList.add('hidden');
+      document.getElementById('game-screen').classList.remove('hidden');
+
+      // Reset Gift Box Lid & Animal Reveal
+      const lid = document.getElementById('gift-box-lid');
+      lid.classList.remove('animate-lid-pop-off');
+      lid.style.opacity = '1';
+      lid.style.transform = '';
+
+      const animalContainer = document.getElementById('animal-reveal-container');
+      animalContainer.classList.add('hidden');
+      animalContainer.classList.remove('animate-animal-pop-out');
+      animalContainer.innerHTML = '';
+
+      document.getElementById('golden-rays-layer').classList.add('hidden');
+      document.getElementById('gift-box-body').classList.add('animate-gift-float');
+
+      // Reset Phase 1 & Phase 2 visibility
+      document.getElementById('phase1-builder-panel').classList.remove('hidden');
+      document.getElementById('phase2-guess-wrapper').classList.add('hidden');
+      document.getElementById('question-solved-card').classList.add('hidden');
+      document.getElementById('builder-controls-row').classList.remove('hidden');
+      document.getElementById('sentence-error-alert').classList.add('hidden');
+
+      // Reset Phase 2 sub-cards
+      document.getElementById('animal-guess-card').classList.remove('hidden');
+      document.getElementById('round-victory-card').classList.add('hidden');
+      document.getElementById('animal-guess-input').value = '';
+      document.getElementById('animal-guess-feedback').classList.add('hidden');
+      document.getElementById('first-letter-helper').classList.add('hidden');
+      document.getElementById('first-letter-text').textContent = '';
+      document.getElementById('show-first-letter-btn').classList.remove('hidden');
+      document.getElementById('guess-attempts-badge').textContent = 'Attempts: 0';
+
+      document.getElementById('phase-badge').textContent = 'Step 1: Questions';
+      document.getElementById('phase-badge').className = 'text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full';
+
+      prepareQuestionTokens(0);
+      updateHeaderAndProgress();
+      renderRoundPills();
+      renderSentenceBuilder();
+    }
+
+    function prepareQuestionTokens(clueIdx) {
+      const clue = GAME_ROUNDS[state.roundIndex].clues[clueIdx];
+      state.placedTokens = [];
+      state.bankTokens = scrambleTokens(clue.tokens).map((text, idx) => ({
+        id: `${clueIdx}-${idx}-${text}`,
+        text
+      }));
+      state.currentQuestionChecked = false;
+    }
+
+    function updateHeaderAndProgress() {
+      document.getElementById('score-display').textContent = state.score;
+      document.getElementById('round-badge').textContent = `Round ${state.roundIndex + 1} of ${GAME_ROUNDS.length}`;
+      document.getElementById('clues-progress-text').textContent = `Clues unlocked: ${state.unlockedCluesCount} / 10`;
+
+      const starsRow = document.getElementById('progress-stars-row');
+      starsRow.innerHTML = Array.from({ length: 10 }, (_, idx) => {
+        const isUnlocked = idx < state.unlockedCluesCount;
+        const isJustUnlocked = idx === state.unlockedCluesCount - 1 && state.currentQuestionChecked;
+        if (isUnlocked) {
+          return `
+            <span
+              class="w-6 h-6 rounded-full bg-amber-400 text-indigo-950 font-display font-black text-xs flex items-center justify-center shadow-2xs border border-amber-500 ${isJustUnlocked ? 'animate-star-pop' : ''}"
+              title="Clue ${idx + 1} unlocked"
+            >
+              ★
+            </span>
+          `;
+        }
+        return `
+          <span
+            class="w-6 h-6 rounded-full bg-slate-100 text-slate-400 font-display font-bold text-[11px] flex items-center justify-center border border-slate-200"
+            title="Clue ${idx + 1} locked"
+          >
+            ${idx + 1}
+          </span>
+        `;
+      }).join('');
+    }
+
+    function renderRoundPills() {
+      const nav = document.getElementById('round-selector');
+      nav.innerHTML = GAME_ROUNDS.map((_, idx) => {
+        const isCurrent = idx === state.roundIndex;
+        const isDone = state.completedRounds.has(idx);
+
+        if (isCurrent) {
+          return `
+            <button
+              type="button"
+              onclick="loadRound(${idx})"
+              class="px-3 py-1 rounded-xl bg-amber-400 text-indigo-950 font-display font-black text-xs sm:text-sm transition cursor-pointer"
+            >
+              Round ${idx + 1}
+            </button>
+          `;
+        }
+        if (isDone) {
+          return `
+            <button
+              type="button"
+              onclick="loadRound(${idx})"
+              class="px-2.5 py-1 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/40 text-emerald-200 border border-emerald-400/40 font-display font-extrabold text-xs sm:text-sm transition cursor-pointer"
+            >
+              ✓ ${idx + 1}
+            </button>
+          `;
+        }
+        return `
+          <button
+            type="button"
+            onclick="loadRound(${idx})"
+            class="px-2.5 py-1 rounded-xl bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 font-display font-bold text-xs sm:text-sm transition cursor-pointer"
+          >
+            ${idx + 1}
+          </button>
+        `;
+      }).join('');
+    }
+
+    /**
+     * =========================================================================
+     * 7. PHASE 1: QUESTION BUILDER (QUESTIONS 1 TO 10)
+     * =========================================================================
+     */
+    function renderSentenceBuilder() {
+      const qNum = state.activeClueIndex + 1;
+      document.getElementById('question-number-badge').textContent = qNum;
+      document.getElementById('question-builder-heading').textContent = `Build Question #${qNum} of 10`;
+
+      const dropZone = document.getElementById('sentence-drop-zone');
+      if (state.placedTokens.length === 0) {
+        dropZone.innerHTML = `<span class="text-xs sm:text-sm text-slate-400 font-medium px-2">Tap the words below to build your question...</span>`;
+      } else {
+        dropZone.innerHTML = state.placedTokens.map((tok, idx) => `
+          <button
+            type="button"
+            ${state.currentQuestionChecked ? 'disabled' : `onclick="deselectPlacedToken(${idx})"`}
+            class="placed-tile px-3.5 py-2 rounded-xl bg-indigo-950 ${state.currentQuestionChecked ? 'opacity-90 cursor-default' : 'hover:bg-indigo-800 cursor-pointer'} text-white font-display font-bold text-sm sm:text-base"
+          >
+            ${tok.text}
+          </button>
+        `).join('');
+      }
+
+      const bankZone = document.getElementById('word-bank-zone');
+      bankZone.innerHTML = state.bankTokens.map((tok, idx) => `
+        <button
+          type="button"
+          ${state.currentQuestionChecked ? 'disabled' : `onclick="selectBankToken(${idx})"`}
+          class="word-tile px-3.5 py-2 rounded-xl bg-white hover:bg-amber-50 text-indigo-950 border border-slate-300 font-display font-bold text-sm sm:text-base cursor-pointer"
+        >
+          ${tok.text}
+        </button>
+      `).join('');
+
+      document.getElementById('clear-sentence-btn').disabled = state.placedTokens.length === 0 || state.currentQuestionChecked;
+    }
+
+    function selectBankToken(bankIdx) {
+      if (state.currentQuestionChecked) return;
+      playSelectPop();
+      const [tok] = state.bankTokens.splice(bankIdx, 1);
+      state.placedTokens.push(tok);
+      document.getElementById('sentence-error-alert').classList.add('hidden');
+      renderSentenceBuilder();
+    }
+
+    function deselectPlacedToken(placedIdx) {
+      if (state.currentQuestionChecked) return;
+      playDeselectPop();
+      const [tok] = state.placedTokens.splice(placedIdx, 1);
+      state.bankTokens.push(tok);
+      document.getElementById('sentence-error-alert').classList.add('hidden');
+      renderSentenceBuilder();
+    }
+
+    function clearCurrentSentence() {
+      if (state.currentQuestionChecked || state.placedTokens.length === 0) return;
+      playDeselectPop();
+      state.bankTokens.push(...state.placedTokens);
+      state.placedTokens = [];
+      document.getElementById('sentence-error-alert').classList.add('hidden');
+      renderSentenceBuilder();
+    }
+
+    function triggerShake(el) {
+      el.classList.remove('animate-shake-box');
+      void el.offsetWidth;
+      el.classList.add('animate-shake-box');
+    }
+
+    function checkCurrentSentence() {
+      if (state.currentQuestionChecked) return;
+
+      const clue = GAME_ROUNDS[state.roundIndex].clues[state.activeClueIndex];
+      const expected = clue.tokens;
+      const dropZone = document.getElementById('sentence-drop-zone');
+      const errorAlert = document.getElementById('sentence-error-alert');
+      const errorText = document.getElementById('sentence-error-text');
+
+      if (state.placedTokens.length < expected.length) {
+        playErrorBuzz();
+        triggerShake(dropZone);
+        errorText.textContent = "Use all the words and the question mark, then try again.";
+        errorAlert.classList.remove('hidden');
+        return;
+      }
+
+      const userWords = state.placedTokens.map((t) => t.text);
+      const isCorrectOrder = userWords.every((word, idx) => word === expected[idx]);
+
+      if (!isCorrectOrder) {
+        playErrorBuzz();
+        triggerShake(dropZone);
+        errorText.textContent = "Not quite! Check the word order and try again.";
+        errorAlert.classList.remove('hidden');
+        return;
+      }
+
+      // Question built accurately!
+      playSuccessChime();
+      errorAlert.classList.add('hidden');
+      state.currentQuestionChecked = true;
+      state.unlockedCluesCount += 1;
+      state.score += 10;
+
+      // Wobble the gift box gently
+      const boxBody = document.getElementById('gift-box-body');
+      boxBody.classList.remove('animate-gift-wobble');
+      void boxBody.offsetWidth;
+      boxBody.classList.add('animate-gift-wobble');
+
+      updateHeaderAndProgress();
+      renderSentenceBuilder();
+
+      // Hide Check/Clear controls and show the Q&A result card
+      document.getElementById('builder-controls-row').classList.add('hidden');
+      const solvedCard = document.getElementById('question-solved-card');
+      solvedCard.classList.remove('hidden');
+
+      document.getElementById('solved-question-text').textContent = clue.text;
+
+      const answerPill = document.getElementById('solved-answer-pill');
+      if (clue.answer) {
+        answerPill.textContent = "Yes, it does.";
+        answerPill.className = "inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl font-display font-black text-sm sm:text-base text-white bg-emerald-600";
+        solvedCard.className = "mb-2 p-4 rounded-2xl border-2 border-emerald-300 bg-emerald-50/70 animate-pop-in";
+      } else {
+        answerPill.textContent = "No, it doesn't.";
+        answerPill.className = "inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl font-display font-black text-sm sm:text-base text-white bg-rose-600";
+        solvedCard.className = "mb-2 p-4 rounded-2xl border-2 border-rose-300 bg-rose-50/70 animate-pop-in";
+      }
+
+      const nextBtn = document.getElementById('next-question-btn');
+      if (state.activeClueIndex + 1 < 10) {
+        nextBtn.textContent = "Next Question →";
+      } else {
+        nextBtn.textContent = "Guess the Animal! →";
+      }
+    }
+
+    function advanceFromSolvedQuestion() {
+      playSelectPop();
+      if (state.activeClueIndex + 1 < 10) {
+        state.activeClueIndex += 1;
+        document.getElementById('question-solved-card').classList.add('hidden');
+        document.getElementById('builder-controls-row').classList.remove('hidden');
+        prepareQuestionTokens(state.activeClueIndex);
+        renderSentenceBuilder();
+      } else {
+        enterPhaseTwoGuessScreen();
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 8. PHASE 2: GUESS THE ANIMAL (TOP) + ALL 10 CLUES LIST (BOTTOM)
+     * =========================================================================
+     */
+    function enterPhaseTwoGuessScreen() {
+      document.getElementById('phase1-builder-panel').classList.add('hidden');
+      document.getElementById('phase2-guess-wrapper').classList.remove('hidden');
+
+      const phaseBadge = document.getElementById('phase-badge');
+      phaseBadge.textContent = 'Step 2: Guess!';
+      phaseBadge.className = 'text-xs font-bold text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1 rounded-full';
+
+      renderAllTenClues();
+
+      setTimeout(() => {
+        const inputEl = document.getElementById('animal-guess-input');
+        if (inputEl) inputEl.focus();
+      }, 120);
+    }
+
+    function renderAllTenClues() {
+      const listEl = document.getElementById('all-clues-list');
+      const clues = GAME_ROUNDS[state.roundIndex].clues;
+
+      listEl.innerHTML = clues.map((clue, idx) => {
+        const isYes = clue.answer;
+        return `
+          <div class="rounded-2xl border ${isYes ? 'border-emerald-200 bg-emerald-50/50' : 'border-rose-200 bg-rose-50/50'} px-3.5 py-2 flex items-center justify-between gap-2.5">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="w-6 h-6 rounded-lg ${isYes ? 'bg-emerald-600' : 'bg-rose-600'} text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0">
+                ${idx + 1}
+              </span>
+              <span class="font-display font-bold text-xs sm:text-sm text-slate-900">
+                ${clue.text}
+              </span>
+            </div>
+            <span class="px-2.5 py-1 rounded-xl font-display font-black text-xs text-white ${isYes ? 'bg-emerald-600' : 'bg-rose-600'} shrink-0">
+              ${isYes ? 'Yes, it does.' : "No, it doesn't."}
+            </span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function handleAnimalGuess(event) {
+      event.preventDefault();
+      if (state.roundSolved) return;
+
+      const inputEl = document.getElementById('animal-guess-input');
+      const feedbackEl = document.getElementById('animal-guess-feedback');
+      const cleaned = normalizeAnimalInput(inputEl.value);
+
+      if (!cleaned) {
+        playErrorBuzz();
+        triggerShake(inputEl);
+        feedbackEl.textContent = "Please type an animal's name first!";
+        feedbackEl.classList.remove('hidden');
+        inputEl.focus();
+        return;
+      }
+
+      state.guessAttempts += 1;
+      document.getElementById('guess-attempts-badge').textContent = `Attempts: ${state.guessAttempts}`;
+
+      const roundData = GAME_ROUNDS[state.roundIndex];
+      if (roundData.acceptedAnswers.includes(cleaned)) {
+        openGiftBoxAndCelebrate();
+        return;
+      }
+
+      // Wrong guess: gentle error buzz, shake input, unlimited retries
+      playErrorBuzz();
+      triggerShake(inputEl);
+      triggerShake(document.getElementById('gift-box-stage'));
+
+      feedbackEl.textContent = "Try again! Read the clues carefully.";
+      feedbackEl.classList.remove('hidden');
+
+      if (state.guessAttempts >= 3) {
+        document.getElementById('first-letter-helper').classList.remove('hidden');
+      }
+
+      inputEl.select();
+    }
+
+    function revealFirstLetterHint() {
+      playSelectPop();
+      const roundData = GAME_ROUNDS[state.roundIndex];
+      const firstLetter = roundData.animalName.charAt(0).toUpperCase();
+      document.getElementById('first-letter-text').textContent = `Hint: It starts with the letter "${firstLetter}" (${roundData.animalName.length} letters).`;
+      document.getElementById('show-first-letter-btn').classList.add('hidden');
+      document.getElementById('animal-guess-input').focus();
+    }
+
+    function openGiftBoxAndCelebrate() {
+      state.roundSolved = true;
+      state.completedRounds.add(state.roundIndex);
+      state.roundAttemptsMap[state.roundIndex] = state.guessAttempts;
+
+      const roundData = GAME_ROUNDS[state.roundIndex];
+      const bonus = Math.max(20, 60 - (state.guessAttempts - 1) * 10);
+      state.score += bonus;
+
+      updateHeaderAndProgress();
+      renderRoundPills();
+
+      // 1. Pop off gift box lid + ignite golden rays
+      const lid = document.getElementById('gift-box-lid');
+      lid.classList.add('animate-lid-pop-off');
+      document.getElementById('gift-box-body').classList.remove('animate-gift-float');
+      document.getElementById('golden-rays-layer').classList.remove('hidden');
+
+      // 2. Rise hidden animal smoothly out of the open gift box!
+      const animalContainer = document.getElementById('animal-reveal-container');
+      animalContainer.innerHTML = ANIMAL_SVGS[roundData.animalKey];
+      animalContainer.classList.remove('hidden');
+      animalContainer.classList.add('animate-animal-pop-out');
+
+      // 3. Fanfare + Confetti
+      playBoxOpenFanfare();
+      launchConfetti();
+
+      // 4. Show Victory Banner at top of Right Column
+      document.getElementById('animal-guess-card').classList.add('hidden');
+      const victoryCard = document.getElementById('round-victory-card');
+      victoryCard.classList.remove('hidden');
+
+      document.getElementById('victory-animal-heading').textContent = `It's ${roundData.article} ${roundData.animalName}!`;
+      document.getElementById('victory-subtext').textContent = state.guessAttempts === 1
+        ? `Amazing! You guessed it on your very first try! (+${bonus} pts)`
+        : `Great detective work! Solved in ${state.guessAttempts} guesses (+${bonus} pts)`;
+
+      const nextBtn = document.getElementById('next-round-btn');
+      if (state.roundIndex + 1 < GAME_ROUNDS.length) {
+        nextBtn.textContent = `Next Round (Round ${state.roundIndex + 2}) →`;
+      } else {
+        nextBtn.textContent = "See Final Results 🏆";
+      }
+    }
+
+    function goToNextRound() {
+      playSelectPop();
+      if (state.roundIndex + 1 < GAME_ROUNDS.length) {
+        loadRound(state.roundIndex + 1);
+      } else {
+        showFinalSummaryScreen();
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 9. FINAL 4-ROUND SUMMARY SCREEN & PLAY AGAIN
+     * =========================================================================
+     */
+    function showFinalSummaryScreen() {
+      document.getElementById('game-screen').classList.add('hidden');
+      const summary = document.getElementById('final-summary-screen');
+      summary.classList.remove('hidden');
+
+      document.getElementById('final-score-display').textContent = state.score;
+
+      const grid = document.getElementById('summary-animals-grid');
+      grid.innerHTML = GAME_ROUNDS.map((r, idx) => {
+        const attempts = state.roundAttemptsMap[idx] || 1;
+        return `
+          <div class="rounded-2xl border-2 border-amber-200 bg-[#fdfbf7] p-4 flex flex-col items-center text-center shadow-2xs">
+            <span class="text-[11px] font-extrabold uppercase tracking-wider text-indigo-900 mb-1">
+              Round ${r.round}
+            </span>
+            <div class="w-24 h-24 my-1">
+              ${ANIMAL_SVGS[r.animalKey]}
+            </div>
+            <span class="font-display font-black text-lg text-indigo-950">${r.animalName}</span>
+            <span class="mt-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs">
+              ${attempts === 1 ? '1 guess' : `${attempts} guesses`}
+            </span>
+          </div>
+        `;
+      }).join('');
+
+      playBoxOpenFanfare();
+      launchConfetti();
+    }
+
+    function restartAllRounds() {
+      playSelectPop();
+      state.score = 0;
+      state.completedRounds.clear();
+      state.roundAttemptsMap = {};
+      loadRound(0);
+    }
+
+    /**
+     * =========================================================================
+     * 10. CONFETTI PARTICLE ANIMATION
+     * =========================================================================
+     */
+    let confettiParticles = [];
+    let confettiRaf = null;
+
+    function resizeConfettiCanvas() {
+      const canvas = document.getElementById('confetti-canvas');
+      if (!canvas) return;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener('resize', resizeConfettiCanvas);
+
+    function launchConfetti() {
+      resizeConfettiCanvas();
+      const canvas = document.getElementById('confetti-canvas');
+      const ctx = canvas.getContext('2d');
+      const colors = ['#f43f5e', '#facc15', '#10b981', '#3b82f6', '#a855f7', '#fb923c'];
+
+      confettiParticles = Array.from({ length: 95 }, () => ({
+        x: canvas.width * (0.2 + Math.random() * 0.6),
+        y: canvas.height * 0.42,
+        vx: (Math.random() - 0.5) * 15,
+        vy: -Math.random() * 13 - 4,
+        size: Math.random() * 8 + 5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        rot: Math.random() * 360,
+        vRot: (Math.random() - 0.5) * 12,
+        alpha: 1
+      }));
+
+      if (confettiRaf) cancelAnimationFrame(confettiRaf);
+
+      function step() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let active = 0;
+
+        confettiParticles.forEach((p) => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.36;
+          p.vx *= 0.99;
+          p.rot += p.vRot;
+          p.alpha -= 0.011;
+
+          if (p.alpha > 0) {
+            active++;
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, p.alpha);
+            ctx.translate(p.x, p.y);
+            ctx.rotate((p.rot * Math.PI) / 180);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+            ctx.restore();
+          }
+        });
+
+        if (active > 0) {
+          confettiRaf = requestAnimationFrame(step);
+        } else {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+
+      step();
+    }
+
+    // Start Round 1 on load
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeConfettiCanvas();
+      loadRound(0);
+    });
+  </script>
+</body>
+</html>
